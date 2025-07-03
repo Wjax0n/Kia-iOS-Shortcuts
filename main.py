@@ -115,20 +115,43 @@ def start_climate():
         print("Refreshing vehicle states...")
         vehicle_manager.update_all_vehicles_with_cached_state()
 
-        # Create ClimateRequestOptions object
+        # Get POSTed JSON data
+        data = request.get_json(force=True) or {}
+        mode = data.get("mode", "").lower()
+        temp = data.get("temp")
+
+        # Determine temperature
+        if temp is not None:
+            try:
+                temp = int(temp)
+                print(f"Received custom temp: {temp}")
+            except ValueError:
+                return jsonify({"error": "Invalid 'temp' value; must be an integer."}), 400
+        elif mode == "hot":
+            temp = 85
+            print("Mode set to HOT")
+        elif mode == "cold":
+            temp = 62
+            print("Mode set to COLD")
+        else:
+            temp = 72  # Default
+            print("No mode or temp provided. Using default 72°F")
+
+        # Create and send climate request
         climate_options = ClimateRequestOptions(
-            set_temp=72,  # Set temperature in Fahrenheit
-            duration=10   # Duration in minutes
+            set_temp=temp,
+            duration=10
         )
 
-        # Start climate control using the VehicleManager's start_climate method
         result = vehicle_manager.start_climate(VEHICLE_ID, climate_options)
         print(f"Start climate result: {result}")
 
-        return jsonify({"status": "Climate started", "result": result}), 200
+        return jsonify({"status": f"Climate started at {temp}°F", "result": result}), 200
+
     except Exception as e:
         print(f"Error in /start_climate: {e}")
         return jsonify({"error": str(e)}), 500
+
 
 # Stop climate endpoint
 @app.route('/stop_climate', methods=['POST'])
